@@ -22,6 +22,38 @@ pub struct ApiKeys {
     pub anthropic: Option<String>,
     pub openai: Option<String>,
     pub open_router: Option<String>,
+    /// LM Studio configuration for locally hosted models.
+    /// LM Studio exposes an OpenAI-compatible HTTP API, typically at
+    /// `http://localhost:1234/v1`. No API key is required; the field
+    /// is stored here to allow the user to override it if needed.
+    #[serde(default)]
+    pub lm_studio: Option<LmStudioApiConfig>,
+}
+
+/// Configuration for using LM Studio as a local AI provider.
+///
+/// LM Studio serves models (e.g. Gemma) via an OpenAI-compatible API.
+/// Configure the server in LM Studio: Server → Start Server, and make
+/// sure "OpenAI Compatible Server" is enabled (default port 1234).
+///
+/// Environment variables (highest priority):
+/// - `WARP_LM_STUDIO_BASE_URL`  – base URL of the LM Studio server
+///   (default: `http://localhost:1234/v1`)
+/// - `WARP_LM_STUDIO_API_KEY`   – API key sent in `Authorization: Bearer` header
+///   (default: empty; LM Studio does not require a real key)
+/// - `WARP_LM_STUDIO_MODEL`     – model identifier to request
+///   (e.g. `gemma-2-2b-it`, `gemma-2-9b-it`)
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct LmStudioApiConfig {
+    /// Base URL of the LM Studio OpenAI-compatible endpoint.
+    /// Defaults to `http://localhost:1234/v1` when `None`.
+    pub base_url: Option<String>,
+    /// Optional API key. LM Studio does not require one; supply a dummy
+    /// value if the downstream tooling rejects an empty `Authorization` header.
+    pub api_key: Option<String>,
+    /// The model identifier to use (e.g. `gemma-2-2b-it`).
+    /// When `None`, LM Studio uses whichever model is currently loaded.
+    pub model: Option<String>,
 }
 
 impl ApiKeys {
@@ -30,6 +62,7 @@ impl ApiKeys {
             || self.anthropic.is_some()
             || self.google.is_some()
             || self.open_router.is_some()
+            || self.lm_studio.is_some()
     }
 }
 
@@ -89,6 +122,18 @@ impl ApiKeyManager {
 
     pub fn set_open_router_key(&mut self, key: Option<String>, ctx: &mut ModelContext<Self>) {
         self.keys.open_router = key;
+        ctx.emit(ApiKeyManagerEvent::KeysUpdated);
+        self.write_keys_to_secure_storage(ctx);
+    }
+
+    /// Update the LM Studio configuration (base URL, API key, model).
+    /// Persists the change to secure storage and notifies subscribers.
+    pub fn set_lm_studio_config(
+        &mut self,
+        config: Option<LmStudioApiConfig>,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        self.keys.lm_studio = config;
         ctx.emit(ApiKeyManagerEvent::KeysUpdated);
         self.write_keys_to_secure_storage(ctx);
     }
