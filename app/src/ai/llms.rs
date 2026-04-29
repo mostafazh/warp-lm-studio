@@ -89,6 +89,9 @@ pub enum LLMProvider {
     Anthropic,
     Google,
     Xai,
+    /// Locally hosted models served via LM Studio's OpenAI-compatible API.
+    /// Default base URL: http://localhost:1234/v1
+    LmStudio,
     Unknown,
 }
 
@@ -100,6 +103,7 @@ impl LLMProvider {
             LLMProvider::Anthropic => Some(Icon::ClaudeLogo),
             LLMProvider::Google => Some(Icon::GeminiLogo),
             LLMProvider::Xai => None,
+            LLMProvider::LmStudio => None,
             LLMProvider::Unknown => None,
         }
     }

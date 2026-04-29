@@ -39,6 +39,78 @@ Explore [build.warp.dev](https://build.warp.dev) to:
 - Track your own issues with GitHub sign-in
 - Click into active agent sessions in a web-compiled Warp terminal
 
+## Using a Local Model with LM Studio
+
+Warp includes a built-in client library for [LM Studio](https://lmstudio.ai), which lets you
+serve local models (e.g. **Gemma 2**) via an OpenAI-compatible HTTP API and use them as a
+backend for AI features.
+
+### Prerequisites
+
+1. Download and install [LM Studio](https://lmstudio.ai).
+2. Inside LM Studio, download the model you want to use.
+   Recommended Gemma models:
+   - `gemma-2-2b-it` (lightweight, fast)
+   - `gemma-2-9b-it` (higher quality)
+3. Start the local server:
+   - Open the **Server** tab in LM Studio.
+   - Click **Start Server**.
+   - Make sure **"OpenAI Compatible Server"** is enabled (default port: **1234**).
+
+### Configuration
+
+Configure Warp to use LM Studio via environment variables. Set these before launching Warp,
+or export them in your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```sh
+# Base URL of the LM Studio server (default shown; change port if needed)
+export WARP_LM_STUDIO_BASE_URL="http://localhost:1234/v1"
+
+# The model identifier to request (must match what is loaded in LM Studio)
+export WARP_LM_STUDIO_MODEL="gemma-2-2b-it"
+
+# API key – LM Studio does not require a real key.
+# Leave unset (no Authorization header will be sent) or set a placeholder:
+# export WARP_LM_STUDIO_API_KEY="lm-studio"
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `WARP_LM_STUDIO_BASE_URL` | `http://localhost:1234/v1` | Base URL of the LM Studio OpenAI-compatible endpoint |
+| `WARP_LM_STUDIO_MODEL` | *(use loaded model)* | Model identifier (e.g. `gemma-2-2b-it`) |
+| `WARP_LM_STUDIO_API_KEY` | *(none)* | API key sent in `Authorization: Bearer` header; not required by LM Studio |
+
+### Verifying the connection
+
+You can test your LM Studio server independently with `curl`:
+
+```sh
+curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemma-2-2b-it",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": false
+  }'
+```
+
+### Architecture note
+
+Warp's default inference path routes requests through the Warp backend server
+(`app.warp.dev`). LM Studio runs **locally** on your machine, so its requests
+go directly from the Warp client to `localhost:1234`, bypassing the backend.
+The `crates/ai/src/lm_studio/` module provides the client library, types, and
+configuration helpers for this direct path. Wiring it into specific agent
+conversation flows is an ongoing effort—see the linked issue for status.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `Cannot reach the LM Studio server` | Make sure LM Studio is open and you clicked **Start Server** in the Server tab |
+| Wrong model response | Check that `WARP_LM_STUDIO_MODEL` matches the model name shown in LM Studio |
+| Port conflict | Change the port in LM Studio's server settings and update `WARP_LM_STUDIO_BASE_URL` accordingly |
+
 ## Licensing
 
 Warp's UI framework (the `warpui_core` and `warpui` crates) are licensed under the [MIT license](LICENSE-MIT).
